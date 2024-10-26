@@ -1,5 +1,7 @@
-enum Side
+package br.ufscar.dc.internship.utils;
+
+public enum Side
 {
-    BID,
-    ASK
+    BUY,
+    SELL
 }

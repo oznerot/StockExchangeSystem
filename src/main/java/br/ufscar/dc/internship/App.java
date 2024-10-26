@@ -1,32 +1,35 @@
 package br.ufscar.dc.internship;
 
-import br.ufscar.dc.internship.models.Offer;
-import br.ufscar.dc.internship.models.OfferBook;
+import br.ufscar.dc.internship.engine.MatchingEngine;
 
 public class App {
     public static void main(String[] args) {
-        Offer offer = new Offer("limit", "buy", "10.50", 100);
+        String asset = "Apple";
 
-        System.out.println(offer.toString());
+        MatchingEngine engine = new MatchingEngine();
 
-        OfferBook book = new OfferBook();
+        engine.newAsset(asset);
 
-        for(int i = 0; i < 5; i++)
-        {
-            book.addToBook(new Offer("limit", "buy", String.valueOf(10.50 + 0.50 * i), 100));
-            book.addToBook(new Offer("limit", "sell",String.valueOf(10.50 + 0.50 * i), 100));
-        }
+        // Buy Orders <type, side, price, qty>
+        engine.queryOrder("limit buy 1004 10", asset);
+        engine.queryOrder("limit buy 1003 25", asset);
+        engine.queryOrder("limit buy 1002 50", asset);
+        engine.queryOrder("limit buy 1001 40", asset);
+        engine.queryOrder("limit buy 1000 120", asset);
 
-        System.out.println("Buy List:");
-        while(!book.buyList.isEmpty())
-        {
-            System.out.println(book.buyList.poll());
-        }
+        // Sell Orders
+        engine.queryOrder("limit sell 1005 20", asset);
+        engine.queryOrder("limit sell 1006 50", asset);
+        engine.queryOrder("limit sell 1007 30", asset);
+        engine.queryOrder("limit sell 1008 100", asset);
+        engine.queryOrder("limit sell 1009 210", asset);
 
-        System.out.println("Sell List:");
-        while(!book.sellList.isEmpty())
-        {
-            System.out.println(book.sellList.poll());
-        }
+
+        engine.printBook(asset);
+
+        engine.queryOrder("limit buy 1005 25", asset);
+        engine.queryOrder("limit sell 1002 100", asset);
+        
+        engine.printBook(asset);
     }
 }
