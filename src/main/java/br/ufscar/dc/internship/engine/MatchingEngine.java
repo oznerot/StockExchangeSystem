@@ -1,15 +1,19 @@
 package br.ufscar.dc.internship.engine;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import br.ufscar.dc.internship.config.EngineConstants;
 import br.ufscar.dc.internship.models.Order;
 import br.ufscar.dc.internship.models.OrderBook;
+import br.ufscar.dc.internship.models.Trade;
 import br.ufscar.dc.internship.utils.Side;
 import br.ufscar.dc.internship.utils.Type;
 
-public class MatchingEngine
+public class MatchingEngine implements EngineConstants
 {
     // HashMap para diversos Livros de Ordens.
     public Map<String, OrderBook> orderBookMap;
@@ -21,7 +25,11 @@ public class MatchingEngine
         orderBookMap = new HashMap<String, OrderBook>();
     }
 
-    // Adiciona um novo ativo na Engine
+    /**
+     * @param asset - Novo asset que será usado como chave para livro de ordens
+     * 
+     * @return True se a operação foi realizada com sucesso. False caso contrário
+     */
     public boolean newAsset(String asset)
     {
         if(orderBookMap.containsKey(asset))
@@ -36,7 +44,17 @@ public class MatchingEngine
         return true;
     }
 
-    public boolean limitOrder(String query, String asset)
+    /**
+     * Processa uma ordem Limit
+     * 
+     * @param side - Side da ordem, "buy" ou "sell"
+     * @param price - Preço da ordem
+     * @param quantity - Quantidade da ordem
+     * @param asset - Em qual livro de ordens a ordem será processada
+     * 
+     * @return True se a operação foi bem sucedidade. False caso contrário.
+     */
+    public boolean submitLimitOrder(String side, double price, int quantity, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
         if(orderBook == null)
@@ -45,19 +63,30 @@ public class MatchingEngine
             return false;
         }
 
-        String[] tokens = query.split(" ");
-        Side side = tokens[0].toLowerCase().equals("buy") ? Side.BUY : Side.SELL;
-        BigDecimal price = new BigDecimal(tokens[1]);
-        int quantity = Integer.parseInt(tokens[2]);
+        Side sideEnum = side.equals("buy") ? Side.BUY : Side.SELL;
 
-        Order order = new Order(Type.LIMIT, side, price, quantity);
+        Order order = new Order(Type.LIMIT, sideEnum, new BigDecimal(price), quantity);
 
-        orderBook.matchLimitOrder(order);
+        List<Trade> trades = orderBook.matchLimitOrder(order);
+
+        for(Trade trade : trades)
+        {
+            System.out.println(trade);
+        }
 
         return true;
     }
 
-    public boolean marketOrder(String query, String asset)
+    /**
+     * Processa uma ordem Market
+     * 
+     * @param side - Side da ordem, "buy" ou "sell"
+     * @param quantity - Quantidade da ordem
+     * @param asset - Em qual livro de ordens a ordem será processada
+     * 
+     * @return True caso a operação foi bem sucedida. False caso contrário
+     */
+    public boolean submitMarketOrder(String side, int quantity, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
         if(orderBook == null)
@@ -66,17 +95,31 @@ public class MatchingEngine
             return false;
         }
 
-        String[] tokens = query.split(" ");
-        Side side = tokens[0].toLowerCase().equals("buy")? Side.BUY : Side.SELL;
-        int quantity = Integer.parseInt(tokens[1]);
+        Side sideEnum = side.equals("buy") ? Side.BUY : Side.SELL;
 
-        Order order = new Order(Type.MARKET, side, new BigDecimal(0), quantity);
+        Order order = new Order(Type.MARKET, sideEnum, new BigDecimal(0), quantity);
 
-        orderBook.matchMarketOrder(order);
+        List<Trade> trades = orderBook.matchMarketOrder(order);
+
+        if(!trades.isEmpty())
+        {
+            for(Trade trade : trades)
+            {
+                System.out.println(trade);
+            }
+        }
 
         return true;
     }
 
+    /**
+     * Cancela uma ordem
+     * 
+     * @param id - identificador da ordem
+     * @param asset - Em qual livro de ordens a ordem será cancelada
+     * 
+     * @return True se a operação foi bem sucedida. False caso contrário.
+     */
     public boolean cancelOrder(String id, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
@@ -93,10 +136,19 @@ public class MatchingEngine
             return false;
         }
 
-        orderBook.removeOrder(order);
+        orderBook.removeOrderFromBook(order);
         return true;
     }
 
+    /**
+     * Atualiza uma ordem
+     * 
+     * @param id - identificador da ordem
+     * @param newPrice - Novo preço da ordem
+     * @param newQuantity - Nova quantidade da ordem
+     * 
+     * @return True se a operação foi bem sucedida. False caso contrário
+     */
     public boolean updateOrder(String id, String newPrice, int newQuantity, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
@@ -112,15 +164,23 @@ public class MatchingEngine
             System.out.println("Ordem não encontrada");
             return false;
         }
-
-        orderBook.removeOrder(existingOrder);
+        
+        orderBook.removeOrderFromBook(existingOrder);
 
         BigDecimal price = new BigDecimal(newPrice);
 
         existingOrder.setPrice(price);
         existingOrder.setQuantity(newQuantity);
 
-        orderBook.matchLimitOrder(existingOrder);
+        List<Trade> trades = orderBook.matchLimitOrder(existingOrder);
+
+        if(!trades.isEmpty())
+        {
+            for(Trade trade : trades)
+            {
+                System.out.println(trade);
+            }
+        }
 
         return true;
     }
@@ -132,12 +192,13 @@ public class MatchingEngine
         orderBook.printBook();
     }
 
+    // Método de debug, estava verificando os id no hashmap
     public void viewOrderBookKeys(String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
         if(orderBook == null)
         {
-            System.out.println(ASSET_MOT_FOUND);
+            System.out.println(ASSET_NOT_FOUND);
             return;
         }
 

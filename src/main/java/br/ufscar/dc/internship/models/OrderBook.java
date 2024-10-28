@@ -3,6 +3,7 @@ package br.ufscar.dc.internship.models;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.function.BiPredicate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.TreeMap;
 
 import br.ufscar.dc.internship.config.EngineConstants;
 import br.ufscar.dc.internship.models.Order;
+import br.ufscar.dc.internship.models.Trade;
 import br.ufscar.dc.internship.utils.Side;
 
 public class OrderBook implements EngineConstants
@@ -18,20 +20,33 @@ public class OrderBook implements EngineConstants
     public TreeMap<BigDecimal, List<Order>> buyOrders;
     public TreeMap<BigDecimal, List<Order>> sellOrders;
 
-    BigDecimal lastTradedPrice;
+    private List<Order> peggedBuyOrders;
+    private List<Order> peggedSellOrders;
+
+    private BigDecimal highestBuyPrice;
+    private BigDecimal lowestSellPrice;
+
+    private BigDecimal lastTradedPrice;
 
     public OrderBook()
     {
         orderMap = new HashMap<>();
+
+        // Ordena os preços de compra de forma decrescente os de venda de forma crescente.
         buyOrders = new TreeMap<>(Collections.reverseOrder());
         sellOrders = new TreeMap<>();
 
+        peggedBuyOrders = new ArrayList<>();
+        peggedSellOrders = new ArrayList<>();
 
-        lastTradedPrice = new BigDecimal(0);
+        highestBuyPrice = BigDecimal(0);
+        lowestSellPrice = BigDecimal(0);
+
     }
 
     /**
      * @param id - ID de uma ordem
+     * 
      * @return ordem
      */
     public Order getOrder(String id)
@@ -39,7 +54,53 @@ public class OrderBook implements EngineConstants
         return orderMap.get(id);
     }
 
+    public BigDecimal getLastTradedPrice()
+    {
+        return lastTradedPrice;
+    }
+
+    public BigDecimal getHighestBuyPrice()
+    {
+        return highestBuyPrice;
+    }
+
+    public BigDecimal getLowestSellPrice()
+    {
+        return lowestSellPrice;
+    }
+
     /**
+     * Verifica se já existe um nível de preço no TreeMap,
+     * Caso exista, insere a ordem no final da fila,
+     * Caso contrário, cria um novo nível de preço e insere a ordem na fila.
+     * 
+     * Complexidade de tempo: O(log n)
+     * 
+     * @param order - Ordem que vai ser inserida no TreeMap
+     * @param ordersTreeMap - TreeMap, buyOrders ou sellOrders
+     */
+    private void addOrderToTreeMap(Order order, TreeMap<BigDecimal, List<Order>> ordersTreeMap)
+    {
+        BigDecimal orderPrice = order.getPrice();
+
+        if(ordersTreeMap.containsKey(orderPrice))
+        {
+            ordersTreeMap.get(orderPrice).add(order);
+        }
+        else
+        {
+            List<Order> newPriceLevel = new ArrayList<>();
+            newPriceLevel.add(order);
+            ordersTreeMap.put(orderPrice, newPriceLevel);
+        }
+    }
+    /**
+     * Verifica à qual side uma ordem pertence,
+     * Após isso, chama a função de inserção no TreeMap respectivo,
+     * Por fim, adiciona o ID da ordem no HashMap
+     * 
+     * Complexidade de tempo: O(log n)
+     * 
      * @param order - Ordem a ser inserida no Livro
      */
     public void addOrderToBook(Order order)
@@ -49,29 +110,11 @@ public class OrderBook implements EngineConstants
 
         if(order.getSide() == Side.BUY)
         {
-            if(buyOrders.containsKey(orderPrice))
-            {
-                buyOrders.get(orderPrice).add(order);
-            }
-            else
-            {
-                List<Order> priceLevel = new ArrayList<>();
-                priceLevel.add(order);
-                buyOrders.put(orderPrice, priceLevel);
-            }
+            addOrderToTreeMap(order, buyOrders);
         }
         else
         {
-            if(sellOrders.containsKey(orderPrice))
-            {
-                sellOrders.get(orderPrice).add(order);
-            }
-            else
-            {
-                List<Order> priceLevel = new ArrayList<>();
-                priceLevel.add(order);
-                sellOrders.put(orderPrice, priceLevel);
-            }
+            addOrderToTreeMap(order, sellOrders);
         }
 
         orderMap.put(order.getId(), order);
@@ -79,65 +122,89 @@ public class OrderBook implements EngineConstants
     }
 
     /**
-     * Esse método recebe uma ordem para ser removida tanto do TreeMap respectivo
-     * quanto do HashMap<id, ordem>
+     * Remove uma ordem de determinado nível de preço,
+     * Verifica se após a remoção o nível de preço ficou vazio,
+     * Se sim, remove o nível de preço do TreeMap
      * 
-     * @param order - Ordem que será removida
+     * Complexidade de tempo no pior caso (Todas as ordens estão no mesmo nível de preço): O(n)
      * 
+     * @param order - Objeto do tipo Ordem que sera removido
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>>
      */
-    public void removeOrder(Order order)
+    private void removeOrderFromTreeMap(Order order, TreeMap<BigDecimal, List<Order>> ordersTreeMap)
     {
         BigDecimal orderPrice = order.getPrice();
+
+        if(!ordersTreeMap.containsKey(orderPrice))
+        {
+            return;
+        }
+
+        List<Order> priceLevel = ordersTreeMap.get(orderPrice);
+        priceLevel.remove(order);
+        if(priceLevel.isEmpty())
+        {
+            buyOrders.remove(orderPrice);
+        }
+    }
+
+
+    /**
+     * Verifica à qual side a ordem pertence e chama o método de remoção respectivo,
+     * Por fim, remove a ordem também do HashMap.
+     * 
+     * Complexidade de tempo: O(n)
+     * 
+     * @param order - Ordem que será removida
+     */
+    public void removeOrderFromBook(Order order)
+    {
         if(order.getSide() == Side.BUY)
         {
-            List<Order> priceLevel = buyOrders.get(orderPrice);
-            priceLevel.remove(order);
-            if(priceLevel.isEmpty())
-            {
-                buyOrders.remove(orderPrice);
-            }
+            removeOrderFromTreeMap(order, buyOrders);
+
         }
         else
         {
-            List<Order> priceLevel = sellOrders.get(orderPrice);
-            priceLevel.remove(order);
-            if(priceLevel.isEmpty())
-            {
-                sellOrders.remove(orderPrice);
-            }
+            removeOrderFromTreeMap(order, sellOrders);
+
         }
 
         orderMap.remove(order.getId());
     }
 
     /**
-     * @return Maior preço de compra
+     * Busca o melhor preço em determinado side,
+     * Caso seja Buy, o melhor preço é o maior valor,
+     * Caso seja Sell, o melhor preço é o menor valor.
+     * 
+     * Complexidade de tempo: O(log n)
+     * 
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>> onde será feita a busca.
+     * 
+     * @return Maior preço de compra OU Menor preço de venda
      */
-    public BigDecimal getBestBuyPrice()
+    public BigDecimal getBestPriceInSide(TreeMap<BigDecimal, List<Order>> ordersTreeMap)
     {
-        BigDecimal bestBuyPrice = buyOrders.firstKey();
+        BigDecimal bestPrice = ordersTreeMap.firstKey();
 
-        return bestBuyPrice;
+        return bestPrice;
     }
 
     /**
-     * @return Menor preço de venda
+     * Calcula o volume total de ativos em um TreeMap
+     * 
+     * Complexidade de tempo: O(n)
+     * 
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>>
+     * 
+     * @return Volume total de ativos
      */
-    public BigDecimal getBestSellPrice()
-    {
-        BigDecimal bestSellPrice = sellOrders.firstKey();
-
-        return bestSellPrice;
-    }
-
-    /**
-     * @return volume - Quantidade total de um ativo para venda
-     */
-    public int getBuyVolume()
+    public int getTotalVolumeInSide(TreeMap<BigDecimal, List<Order>> ordersTreeMap)
     {
         int volume = 0;
 
-        for (List<Order> orders : buyOrders.values())
+        for(List<Order> orders : ordersTreeMap.values())
         {
             for(Order order : orders)
             {
@@ -149,62 +216,27 @@ public class OrderBook implements EngineConstants
     }
 
     /**
-     * @return volume - Quantidade total de um ativo para venda
+     * Computa uma lista com os N melhores preços de um Side,
+     * Caso seja BUY, será os N maiores preços,
+     * Caso seja SELL, será os N menores preços
+     * 
+     * Complexidade de tempo: O(MAX_TOP_PRICES) = O(1)
+     * 
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>>
+     * 
+     * @return Lista de possíveis preços
      */
-    public int getSellVolume()
-    {
-        int volume = 0;
-
-        for(List<Order> orders : sellOrders.values())
-        {
-            for(Order order : orders)
-            {
-                volume += order.getQuantity();
-            }
-        }
-
-        return volume;
-    }
-
-    /**
-     * @return prices - Lista com até os 5 melhores preços de compra
-     */
-    public List<BigDecimal> topNBestBuyPrices()
+    public List<BigDecimal> topNBestPricesInSide(TreeMap<BigDecimal, List<Order>> ordersTreeMap)
     {
         List<BigDecimal> prices = new ArrayList<>();
-        for(BigDecimal price : buyOrders.keySet())
+        for(BigDecimal price : ordersTreeMap.keySet())
         {
-            if(prices.size() < MAX_TOP_PRICES)
-            {
-                prices.add(price);
-            }
-            else
+            if(prices.size() >= MAX_TOP_PRICES)
             {
                 break;
             }
-        }
 
-        return prices;
-    }
-
-    /**
-     * @return prices - Lista com até os 5 melhores preços de venda
-     */
-    public List<BigDecimal> topNBestSellPrices()
-    {
-        int n = 5;
-
-        List<BigDecimal> prices = new ArrayList<>();
-        for(BigDecimal price : sellOrders.keySet())
-        {
-            if(prices.size() < n)
-            {
-                prices.add(price);
-            }
-            else
-            {
-                break;
-            }
+            prices.add(price);
         }
 
         return prices;
@@ -214,11 +246,14 @@ public class OrderBook implements EngineConstants
      * Esse método combina uma ordem com outras ordens válidas
      * a verificação das ordens válidas é feita em outros métodos
      * 
+     * Pior dos casos: Todas as ordens estão nessa faixa de preço & totalVolume >= incomingOrder.qty
+     * Complexidade de tempo: O(n) 
+     * 
      * @param validOrders - Lista de ordens válidas
      * @param incomingOrder - Ordem a ser executada
      * @param price - preço do nível de preço atual
      */
-    private void executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
+    private Trade executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
     {
         int tradedQty = 0;
         for(Order order : validOrders)
@@ -239,7 +274,7 @@ public class OrderBook implements EngineConstants
                 tradedQty += incomingOrderQty;
                 order.setQuantity(0);
                 incomingOrder.setQuantity(0);
-                orderMap.remove(order.getId(    )); // Remove a ordem completada do HashMap
+                orderMap.remove(order.getId()); // Remove a ordem completada do HashMap
                 break;
             }
             else
@@ -252,141 +287,179 @@ public class OrderBook implements EngineConstants
             }
         }
 
-        lastTradedPrice = price;
-
         // Remove as ordens completadas do nivel de preço
         validOrders.removeIf(n -> (n.getQuantity() == 0));
 
-        System.out.println("Trade, price: " + price + ", qty: " + tradedQty);
+        return new Trade(price, tradedQty);
     }
 
     /**
+     * Processa uma ordem do tipo Market e combina com as ordens que possam ser feitas
+     * 
+     * Complexidade de tempo: O(n)
+     * 
      * @param incomingOrder - Ordem do tipo Market que vai ser processada
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>>
+     * 
+     * @return Lista das trades que foram realizadas.
      */
-    public void matchMarketOrder(Order incomingOrder)
+    private List<Trade> processMarketOrderAndMatchTrades(Order incomingOrder, TreeMap<BigDecimal, List<Order>> ordersTreeMap)
+    {
+        List<BigDecimal> possiblePrices = topNBestPricesInSide(ordersTreeMap);
+        List<Trade> tradesCompleted = new ArrayList<>();
+        if(possiblePrices.isEmpty())
+        {
+            System.out.println("Livro vazio.");
+            return tradesCompleted;
+        }
+
+        for(BigDecimal price : possiblePrices)
+        {
+            if(incomingOrder.getQuantity() == 0)
+            {
+                break;
+            }
+
+            List<Order> ordersAtThisPrice = ordersTreeMap.get(price);
+            Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price);
+            tradesCompleted.add(trade);
+        }
+
+        if(incomingOrder.getQuantity() != 0)
+        {
+            System.out.println("Ordem processada sofreu um partial fill");
+        }
+
+
+
+        return tradesCompleted;
+    }
+
+    /**
+     * Verifica o Side e chama o método para tratar o Side correspondente
+     * 
+     * Complexidade de tempo: O(n)
+     * 
+     * @param incomingOrder - Ordem do tipo Market que vai ser processada
+     * 
+     * @return Lista das trades realizadas
+     */
+    public List<Trade> matchMarketOrder(Order incomingOrder)
     {
         List<BigDecimal> possiblePrices;
+        List<Trade> tradesCompleted = new ArrayList<>();
+
         if(incomingOrder.getSide() == Side.BUY)
         {
-            possiblePrices = topNBestSellPrices();
-            if(!possiblePrices.isEmpty())
+            tradesCompleted = processMarketOrderAndMatchTrades(incomingOrder, sellOrders);
+
+            if(sellOrders.isEmpty())
             {
-                for(BigDecimal price : possiblePrices)
-                {
-                    if(incomingOrder.getQuantity() == 0)
-                    {
-                        break;
-                    }
-
-                    List<Order> ordersAtThisPrice = sellOrders.get(price);
-                    executeMatch(ordersAtThisPrice, incomingOrder, price);
-                }
-
-                if(incomingOrder.getQuantity() != 0)
-                {
-                    System.out.println("Ordem processada sofreu um partial fill");
-                }
+                lowestSellPrice = lastTradedPrice;
             }
             else
             {
-                System.out.println("Livro de venda vazio");
+                lowestSellPrice = sellOrders.firstKey();
             }
         }
         else
         {
-            possiblePrices = topNBestBuyPrices();
-            if(!possiblePrices.isEmpty())
+            tradesCompleted = processMarketOrderAndMatchTrades(incomingOrder, buyOrders);
+
+            if(buyOrders.isEmpty())
             {
-                for(BigDecimal price : possiblePrices)
-                {
-                    if(incomingOrder.getQuantity() == 0)
-                    {
-                        break;
-                    }
-
-                    List<Order> ordersAtThisPrice = buyOrders.get(price);
-                    executeMatch(ordersAtThisPrice, incomingOrder, price);
-                }
-
-                if(incomingOrder.getQuantity()!= 0)
-                {
-                    System.out.println("Ordem processada sofreu um partial fill");
-                }
+                highestSellPrice = lastTradedPrice;
             }
             else
             {
-                System.out.println("Livro de compra vazio");
+                highestSellPrice = buyOrders.firstKey();
             }
+
         }
+
+        return tradesCompleted;
     }
 
     /**
+     * Processa uma ordem do tipo Limit e combina com as ordens que possam ser feitas
+     * 
+     * Complexidade de tempo: O(n)
+     * 
+     * @param incomingOrder - Ordem do tipo Market que vai ser processada
+     * @param ordersTreeMap - Objeto do tipo TreeMap<BigDecimal, List<Order>>
+     * @param priceComparison - Objeto do tipo BiPredicate<BigDecimal, BigDecimal>, é o tipo de comparação que será realizado
+     * 
+     * @return Lista das trades que foram realizadas.
+     */
+    private List<Trade> processLimitOrderAndMatchTrades(Order incomingOrder,
+                                                        TreeMap<BigDecimal, List<Order>> ordersTreeMap,
+                                                        BiPredicate<BigDecimal, BigDecimal> priceComparison)
+    {
+        List<BigDecimal> possiblePrices = topNBestPricesInSide(ordersTreeMap);
+        List<Trade> tradesCompleted = new ArrayList<>();
+        if(possiblePrices.isEmpty())
+        {
+            addOrderToBook(incomingOrder);
+            System.out.println("Livro de compra vazio. Ordem adicionada no livro.");
+            return tradesCompleted;
+        }
+
+        for(BigDecimal price : possiblePrices)
+        {
+            if(priceComparison.test(incomingOrder.getPrice(), price))
+            {
+                if(incomingOrder.getQuantity() == 0)
+                {
+                    break;
+                }
+
+                List<Order> ordersAtThisPrice = ordersTreeMap.get(price);
+                Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price);
+                tradesCompleted.add(trade);
+            }
+        }
+
+        if(incomingOrder.getQuantity() != 0)
+        {
+            addOrderToBook(incomingOrder);
+        }
+
+        return tradesCompleted;
+    }
+    /**
+     * Verifica o Side e chama o método para tratar o Side correspondente
+     * 
+     * Complexidade de tempo: O(n)
+     * 
      * @param incomingOrder - Ordem do tipo Limit que vai ser processada
+     * 
+     * @return Lista de trades que foram realizadas.
      */
-    public void matchLimitOrder(Order incomingOrder)
+    public List<Trade> matchLimitOrder(Order incomingOrder)
     {
         List<BigDecimal> possiblePrices;
+        List<Trade> tradesCompleted = new ArrayList<>();
         if(incomingOrder.getSide() == Side.BUY)
         {
-            possiblePrices = topNBestSellPrices();
-            if(!possiblePrices.isEmpty())
-            {
-                for(BigDecimal price : possiblePrices)
-                {
-                    if(incomingOrder.getPrice().compareTo(price) >= 0)
-                    {
-                        if(incomingOrder.getQuantity() == 0)
-                        {
-                            break;
-                        }
+            processLimitOrderAndMatchTrades(incomingOrder, sellOrders,
+                                           (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) >= 0);
 
-                        List<Order> ordersAtThisPrice = sellOrders.get(price);
-                        executeMatch(ordersAtThisPrice, incomingOrder, price);
-                    }
-                }
-
-                if(incomingOrder.getQuantity() != 0)
-                {
-                    addOrderToBook(incomingOrder);
-                }
-            }
-            else
-            {
-                addOrderToBook(incomingOrder);
-            }
         }
         else
         {
-            possiblePrices = topNBestBuyPrices();
-            if(!possiblePrices.isEmpty())
-            {
-                for(BigDecimal price : possiblePrices)
-                {
-                    if(incomingOrder.getPrice().compareTo(price) <= 0)
-                    {
-                        if(incomingOrder.getQuantity() == 0)
-                        {
-                            break;
-                        }
+            processLimitOrderAndMatchTrades(incomingOrder, buyOrders,
+                                           (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) <= 0);
 
-                        List<Order> ordersAtThisPrice = buyOrders.get(price);
-                        executeMatch(ordersAtThisPrice, incomingOrder, price);
-                    }
-                }
-
-                if(incomingOrder.getQuantity()!= 0)
-                {
-                    addOrderToBook(incomingOrder);
-                }
-            }
-            else
-            {
-                addOrderToBook(incomingOrder);
-            }
         }
+
+        return tradesCompleted;
     }
 
     /**
+     * Retorna todas as ordens de forma ordenada por preço e chegada
+     * 
+     * Complexidade de tempo: O(n)
+     * 
      * @param priceMap - é um TreeMap que mapeia níveis de preço para sua lista correspondente
      * @return lista ordenada por preço de todas as ordens de determinado Side
      */
@@ -405,6 +478,11 @@ public class OrderBook implements EngineConstants
         return allOrders;
     }
 
+    /**
+     * Printa o livro em formato tabular
+     * 
+     * Complexidade de tempo: O(n)
+     */
     public void printBook()
     {
         System.out.println("-------------------------------------------------");
@@ -445,7 +523,7 @@ public class OrderBook implements EngineConstants
 
         }
         System.out.println("-------------------------------------------------");
-        System.out.printf("%20s %20s\n", getBuyVolume(), getSellVolume());
+        System.out.printf("%20s %20s\n", getTotalVolumeInSide(buyOrders), getTotalVolumeInSide(sellOrders));
         System.out.println("-------------------------------------------------");
 
     }

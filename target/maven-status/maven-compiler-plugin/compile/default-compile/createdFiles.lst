@@ -1,4 +1,5 @@
 br/ufscar/dc/internship/utils/Type.class
+br/ufscar/dc/internship/models/Trade.class
 br/ufscar/dc/internship/models/Order.class
 br/ufscar/dc/internship/engine/MatchingEngine.class
 br/ufscar/dc/internship/App.class

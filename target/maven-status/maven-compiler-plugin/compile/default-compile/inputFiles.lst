@@ -3,5 +3,6 @@
 /home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/engine/MatchingEngine.java
 /home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/models/Order.java
 /home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/models/OrderBook.java
+/home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/models/Trade.java
 /home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/utils/Side.java
 /home/vitorenzo/Projects/Java/stock-exchange-system/src/main/java/br/ufscar/dc/internship/utils/Type.java
