@@ -22,37 +22,107 @@ public class MatchingEngine
     }
 
     // Adiciona um novo ativo na Engine
-    public void newAsset(String asset)
+    public boolean newAsset(String asset)
     {
         if(orderBookMap.containsKey(asset))
         {
-            throw new RuntimeException("Ativo já registrado");
+            System.out.println(ASSET_ALREADY_EXISTS);
+            return false;
         }
 
         OrderBook orderBook = new OrderBook();
         orderBookMap.put(asset, orderBook);
+
+        return true;
     }
 
-    public void queryOrder(String query, String asset)
+    public boolean limitOrder(String query, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
-        String[] tokens = query.split(" ");
-
-        Type type = tokens[0].toLowerCase().equals("limit") ? Type.LIMIT : Type.MARKET;
-        Side side = tokens[1].toLowerCase().equals("buy") ? Side.BUY : Side.SELL;
-        
-        BigDecimal price = new BigDecimal(tokens[2]);
-        
-        int quantity = Integer.parseInt(tokens[3]);
-
-        Order order = new Order(type, side, price, quantity);
-
         if(orderBook == null)
         {
-            throw new RuntimeException("Ativo não existente");
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
         }
 
+        String[] tokens = query.split(" ");
+        Side side = tokens[0].toLowerCase().equals("buy") ? Side.BUY : Side.SELL;
+        BigDecimal price = new BigDecimal(tokens[1]);
+        int quantity = Integer.parseInt(tokens[2]);
+
+        Order order = new Order(Type.LIMIT, side, price, quantity);
+
         orderBook.matchLimitOrder(order);
+
+        return true;
+    }
+
+    public boolean marketOrder(String query, String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
+        }
+
+        String[] tokens = query.split(" ");
+        Side side = tokens[0].toLowerCase().equals("buy")? Side.BUY : Side.SELL;
+        int quantity = Integer.parseInt(tokens[1]);
+
+        Order order = new Order(Type.MARKET, side, new BigDecimal(0), quantity);
+
+        orderBook.matchMarketOrder(order);
+
+        return true;
+    }
+
+    public boolean cancelOrder(String id, String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
+        }
+
+        Order order = orderBook.getOrder(id);
+        if(order == null)
+        {
+            System.out.println(ORDER_NOT_FOUND);
+            return false;
+        }
+
+        orderBook.removeOrder(order);
+        return true;
+    }
+
+    public boolean updateOrder(String id, String newPrice, int newQuantity, String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
+        }
+
+        Order existingOrder = orderBook.getOrder(id);
+        if(existingOrder == null)
+        {
+            System.out.println("Ordem não encontrada");
+            return false;
+        }
+
+        orderBook.removeOrder(existingOrder);
+
+        BigDecimal price = new BigDecimal(newPrice);
+
+        existingOrder.setPrice(price);
+        existingOrder.setQuantity(newQuantity);
+
+        orderBook.matchLimitOrder(existingOrder);
+
+        return true;
     }
 
     public void printBook(String asset)
@@ -60,5 +130,17 @@ public class MatchingEngine
         OrderBook orderBook = orderBookMap.get(asset);
 
         orderBook.printBook();
+    }
+
+    public void viewOrderBookKeys(String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_MOT_FOUND);
+            return;
+        }
+
+        System.out.println("Livro de Ordens Keys: " + orderBook.orderMap.keySet());
     }
 }

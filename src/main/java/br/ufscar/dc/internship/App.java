@@ -1,5 +1,7 @@
 package br.ufscar.dc.internship;
 
+import java.util.Scanner;
+
 import br.ufscar.dc.internship.engine.MatchingEngine;
 
 public class App {
@@ -10,26 +12,37 @@ public class App {
 
         engine.newAsset(asset);
 
-        // Buy Orders <type, side, price, qty>
-        engine.queryOrder("limit buy 1004 10", asset);
-        engine.queryOrder("limit buy 1003 25", asset);
-        engine.queryOrder("limit buy 1002 50", asset);
-        engine.queryOrder("limit buy 1001 40", asset);
-        engine.queryOrder("limit buy 1000 120", asset);
+        // ID: identificador_1
+        System.out.println("limit buy 10 100");
+        engine.limitOrder("buy 10 100", asset);
 
-        // Sell Orders
-        engine.queryOrder("limit sell 1005 20", asset);
-        engine.queryOrder("limit sell 1006 50", asset);
-        engine.queryOrder("limit sell 1007 30", asset);
-        engine.queryOrder("limit sell 1008 100", asset);
-        engine.queryOrder("limit sell 1009 210", asset);
+        // ID: identificador_2
+        System.out.println("limit sell 20 200");
+        engine.limitOrder("sell 20 200", asset);
 
+        // ID: identificador_3
+        System.out.println("limit sell 20 200");
+        engine.limitOrder("sell 20 200", asset);
 
+        // ID: identificador_4
+        // Vai realizar um trade completo com a ordem identificador_2
+        // Quantidade da ordem identificador_2 vai ser igual a 50
+        System.out.println("market buy 150");
+        engine.marketOrder("buy 150", asset);
+
+        // ID: identificador_5
+        // Vai realizar um trade com 50 unidades da ordem identificador_2
+        // e 150 unidades da ordem identificador_3, sobrando 50 unidades de
+        // identificador_3
+        System.out.println("market buy 200");
+        engine.marketOrder("buy 200", asset);
+
+        // Teremos ordem de compra identificador_1, quantidade == 100
+        // e ordem de venda identificador_3, quantidade == 50
         engine.printBook(asset);
 
-        engine.queryOrder("limit buy 1005 25", asset);
-        engine.queryOrder("limit sell 1002 100", asset);
-        
+        engine.updateOrder("identificador_3", "9.99", 500, asset);
+
         engine.printBook(asset);
     }
 }

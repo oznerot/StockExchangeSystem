@@ -1,16 +1,20 @@
 package br.ufscar.dc.internship.models;
 
 import java.math.BigDecimal;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.UUID;
 
 import br.ufscar.dc.internship.utils.Side;
 import br.ufscar.dc.internship.utils.Type;
 
 public class Order
 {
-    Type type;
-    Side side;
-    BigDecimal price;
-    int quantity;
+    private static final AtomicInteger count = new AtomicInteger(0);
+    private final String id;
+    private final Type type;
+    private Side side;
+    private BigDecimal price;
+    private int quantity;
 
     /**
      * @param type - LIMIT ou MARKET
@@ -20,11 +24,20 @@ public class Order
      */
     public Order(Type type, Side side, BigDecimal price, int quantity)
     {
+        this.id = "identificador_" + count.incrementAndGet();
         this.type = type;
         this.side = side;
         this.price = price;
         this.quantity = quantity;
 
+    }
+
+    /**
+     * @return id - identificador da ordem
+     */
+    public String getId()
+    {
+        return id;
     }
 
     /**
@@ -36,7 +49,7 @@ public class Order
     }
 
     /**
-     * @return quantity - quantidade da ordem
+     * @return quantidade da ordem
      */
     public int getQuantity()
     {
@@ -44,7 +57,7 @@ public class Order
     }
 
     /**
-     * @return side - BUY ou SELL
+     * @return BUY ou SELL
      */
     public Side getSide()
     {
@@ -57,6 +70,14 @@ public class Order
     public Type getType()
     {
         return type;
+    }
+
+    /**
+     * @param price - novo preço da ordem
+     */
+    public void setPrice(BigDecimal price)
+    {
+        this.price = price;
     }
 
     /**

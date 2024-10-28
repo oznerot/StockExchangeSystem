@@ -8,26 +8,44 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import br.ufscar.dc.internship.config.EngineConstants;
 import br.ufscar.dc.internship.models.Order;
 import br.ufscar.dc.internship.utils.Side;
 
-public class OrderBook
+public class OrderBook implements EngineConstants
 {
+    public Map<String, Order> orderMap;
     public TreeMap<BigDecimal, List<Order>> buyOrders;
     public TreeMap<BigDecimal, List<Order>> sellOrders;
 
+    BigDecimal lastTradedPrice;
+
     public OrderBook()
     {
+        orderMap = new HashMap<>();
         buyOrders = new TreeMap<>(Collections.reverseOrder());
         sellOrders = new TreeMap<>();
+
+
+        lastTradedPrice = new BigDecimal(0);
     }
 
-    /*
+    /**
+     * @param id - ID de uma ordem
+     * @return ordem
+     */
+    public Order getOrder(String id)
+    {
+        return orderMap.get(id);
+    }
+
+    /**
      * @param order - Ordem a ser inserida no Livro
      */
     public void addOrderToBook(Order order)
     {
         BigDecimal orderPrice = order.getPrice();
+        String side = order.getSide() == Side.BUY ? "buy" : "sell";
 
         if(order.getSide() == Side.BUY)
         {
@@ -55,9 +73,12 @@ public class OrderBook
                 sellOrders.put(orderPrice, priceLevel);
             }
         }
+
+        orderMap.put(order.getId(), order);
+        System.out.println("Order created: " + side + " " + order.toString() + " " + order.getId());
     }
 
-    public void removeOrderFromBook(Order order)
+    public void removeOrder(Order order)
     {
         BigDecimal orderPrice = order.getPrice();
         if(order.getSide() == Side.BUY)
@@ -78,24 +99,9 @@ public class OrderBook
                 sellOrders.remove(orderPrice);
             }
         }
-    }
 
-
-    /*TODO
-    public void cancelOrder(Order order)
-    {
-        BigDecimal orderPrice = order.getPrice();
-        if(order.getSide() == Side.BUY)
-        {
-            List<Order> priceLevel = buyOrders.get(orderPrice);
-            priceLevel.remove(order);
-        }
-        else
-        {
-            List<Order> priceLevel = sellOrders.
-        }
+        orderMap.remove(order.getId());
     }
-    */
 
     public BigDecimal getBestBuyPrice()
     {
@@ -111,7 +117,7 @@ public class OrderBook
         return bestSellPrice;
     }
 
-    /*
+    /**
      * @return volume - Quantidade total de um ativo para venda
      */
     public int getBuyVolume()
@@ -130,7 +136,7 @@ public class OrderBook
     }
 
 
-    /*
+    /**
      * @return volume - Quantidade total de um ativo para venda
      */
     public int getSellVolume()
@@ -154,17 +160,15 @@ public class OrderBook
         else return getBestSellPrice();
     }
 
-    /*
+    /**
      * @return prices - Lista com até os 5 melhores preços de compra
      */
     public List<BigDecimal> topNBestBuyPrices()
     {
-        int n = 5;
-
         List<BigDecimal> prices = new ArrayList<>();
         for(BigDecimal price : buyOrders.keySet())
         {
-            if(prices.size() < n)
+            if(prices.size() < MAX_TOP_PRICES)
             {
                 prices.add(price);
             }
@@ -177,7 +181,7 @@ public class OrderBook
         return prices;
     }
 
-    /*
+    /**
      * @return prices - Lista com até os 5 melhores preços de venda
      */
     public List<BigDecimal> topNBestSellPrices()
@@ -200,12 +204,17 @@ public class OrderBook
         return prices;
     }
 
-    /*
+    /**
+     * Esse método combina uma ordem com outras ordens válidas
+     * a verificação das ordens válidas é feita em outros métodos
+     * 
      * @param validOrders - Lista de ordens válidas
      * @param incomingOrder - Ordem a ser executada
+     * @param price - preço do nível de preço atual
      */
-    public void executeMatch(List<Order> validOrders, Order incomingOrder)
+    public void executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
     {
+        int tradedQty = 0;
         for(Order order : validOrders)
         {
             int orderQty = order.getQuantity();
@@ -213,25 +222,36 @@ public class OrderBook
 
             if(orderQty < incomingOrderQty)
             {
-                System.out.println("ENTREI AQUI PORRA");
+                tradedQty += orderQty;
                 incomingOrder.setQuantity(incomingOrderQty - orderQty);
                 order.setQuantity(0);
-                //removeOrderFromBook(order);
+                orderMap.remove(order.getId()); // Remove a ordem completada do HashMap
+
             }
             else if(orderQty == incomingOrderQty)
             {
+                tradedQty += incomingOrderQty;
                 order.setQuantity(0);
-                //removeOrderFromBook(order);
                 incomingOrder.setQuantity(0);
+                orderMap.remove(order.getId(    )); // Remove a ordem completada do HashMap
                 break;
             }
             else
             {
+                tradedQty += incomingOrderQty;
                 order.setQuantity(orderQty - incomingOrderQty);
                 incomingOrder.setQuantity(0);
+
                 break;
             }
         }
+
+        lastTradedPrice = price;
+
+        // Remove as ordens completadas do nivel de preço
+        validOrders.removeIf(n -> (n.getQuantity() == 0));
+
+        System.out.println("Trade, price: " + price + ", qty: " + tradedQty);
     }
 
     public void matchMarketOrder(Order incomingOrder)
@@ -250,17 +270,17 @@ public class OrderBook
                     }
 
                     List<Order> ordersAtThisPrice = sellOrders.get(price);
-                    executeMatch(ordersAtThisPrice, incomingOrder);
+                    executeMatch(ordersAtThisPrice, incomingOrder, price);
                 }
 
                 if(incomingOrder.getQuantity() != 0)
                 {
-                    addOrderToBook(incomingOrder);
+                    System.out.println("Ordem processada sofreu um partial fill");
                 }
             }
             else
             {
-                addOrderToBook(incomingOrder);
+                System.out.println("Livro de venda vazio");
             }
         }
         else
@@ -276,17 +296,17 @@ public class OrderBook
                     }
 
                     List<Order> ordersAtThisPrice = buyOrders.get(price);
-                    executeMatch(ordersAtThisPrice, incomingOrder);
+                    executeMatch(ordersAtThisPrice, incomingOrder, price);
                 }
 
                 if(incomingOrder.getQuantity()!= 0)
                 {
-                    addOrderToBook(incomingOrder);
+                    System.out.println("Ordem processada sofreu um partial fill");
                 }
             }
             else
             {
-                addOrderToBook(incomingOrder);
+                System.out.println("Livro de compra vazio");
             }
         }
     }
@@ -309,7 +329,7 @@ public class OrderBook
                         }
 
                         List<Order> ordersAtThisPrice = sellOrders.get(price);
-                        executeMatch(ordersAtThisPrice, incomingOrder);
+                        executeMatch(ordersAtThisPrice, incomingOrder, price);
                     }
                 }
 
@@ -338,7 +358,7 @@ public class OrderBook
                         }
 
                         List<Order> ordersAtThisPrice = buyOrders.get(price);
-                        executeMatch(ordersAtThisPrice, incomingOrder);
+                        executeMatch(ordersAtThisPrice, incomingOrder, price);
                     }
                 }
 
@@ -354,51 +374,63 @@ public class OrderBook
         }
     }
 
+    public List<Order> getAllOrders(TreeMap<BigDecimal, List<Order>> priceMap)
+    {
+        List<Order> allOrders = new ArrayList<>();
 
+        for(List<Order> orders : priceMap.values())
+        {
+            for(Order order : orders)
+            {
+                allOrders.add(order);
+            }
+        }
+
+        return allOrders;
+    }
 
     public void printBook()
     {
-        /*
-        System.out.println("================================================");
-        System.out.println("|          BUY         |         SIDE          |");
-        System.out.println("================================================");
-        */
+        System.out.println("-------------------------------------------------");
+        System.out.printf("%20s %20s\n", "BUY", "SELL");
+        System.out.println("-------------------------------------------------");
+        
+        List<Order> allBuys = getAllOrders(buyOrders);
+        List<Order> allSells = getAllOrders(sellOrders);
 
-        System.out.println("Buy List:");
-        System.out.println("Total Volume: " + getBuyVolume());
+        int buySize = allBuys.size();
+        int sellSize = allSells.size();
 
-        for(List<Order> buyOrder : buyOrders.values())
+        int n = Math.max(buySize, sellSize);
+
+        String buyPrint = "";
+        String sellPrint = "";
+
+        for(int i = 0; i < n; i++)
         {
-            for(Order o : buyOrder)
+            if(i >= buySize)
             {
-            System.out.println(o.toString());
+                buyPrint = "";
             }
-        }
-
-        System.out.println("Sell List:");
-        System.out.println("Total Volume: " + getSellVolume());
-        for(List<Order> sellOrder : sellOrders.values())
-        {
-            for(Order i : sellOrder)
+            else
             {
-                System.out.println(i.toString());
+                buyPrint = allBuys.get(i).toString();
             }
-        }
+            if(i >= sellSize)
+            {
+                sellPrint = "";
+            }
+            else
+            {
+                sellPrint = allSells.get(i).toString();
+            }
 
-        System.out.println("================================================");
+            System.out.format("%20s %20s\n", buyPrint, sellPrint);
 
-        List<BigDecimal> topNBuyPrices = topNBestBuyPrices();
-        System.out.println("Top " + topNBuyPrices.size() + " buy prices:");
-        for(BigDecimal buyPrice :  topNBuyPrices)
-        {
-            System.out.println(buyPrice);
         }
-    
-        List<BigDecimal> topNSellPrices = topNBestSellPrices();
-        System.out.println("Top " + topNSellPrices.size() + " sell prices:");
-        for(BigDecimal sellPrice :  topNSellPrices)
-        {
-            System.out.println(sellPrice);
-        }
+        System.out.println("-------------------------------------------------");
+        System.out.printf("%20s %20s\n", getBuyVolume(), getSellVolume());
+        System.out.println("-------------------------------------------------");
+
     }
 }
