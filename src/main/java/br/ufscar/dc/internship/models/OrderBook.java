@@ -78,6 +78,13 @@ public class OrderBook implements EngineConstants
         System.out.println("Order created: " + side + " " + order.toString() + " " + order.getId());
     }
 
+    /**
+     * Esse método recebe uma ordem para ser removida tanto do TreeMap respectivo
+     * quanto do HashMap<id, ordem>
+     * 
+     * @param order - Ordem que será removida
+     * 
+     */
     public void removeOrder(Order order)
     {
         BigDecimal orderPrice = order.getPrice();
@@ -103,6 +110,9 @@ public class OrderBook implements EngineConstants
         orderMap.remove(order.getId());
     }
 
+    /**
+     * @return Maior preço de compra
+     */
     public BigDecimal getBestBuyPrice()
     {
         BigDecimal bestBuyPrice = buyOrders.firstKey();
@@ -110,6 +120,9 @@ public class OrderBook implements EngineConstants
         return bestBuyPrice;
     }
 
+    /**
+     * @return Menor preço de venda
+     */
     public BigDecimal getBestSellPrice()
     {
         BigDecimal bestSellPrice = sellOrders.firstKey();
@@ -135,7 +148,6 @@ public class OrderBook implements EngineConstants
         return volume;
     }
 
-
     /**
      * @return volume - Quantidade total de um ativo para venda
      */
@@ -152,12 +164,6 @@ public class OrderBook implements EngineConstants
         }
 
         return volume;
-    }
-
-    public BigDecimal getMarketPrice(Side side)
-    {
-        if(side == Side.BUY) return getBestBuyPrice();
-        else return getBestSellPrice();
     }
 
     /**
@@ -212,7 +218,7 @@ public class OrderBook implements EngineConstants
      * @param incomingOrder - Ordem a ser executada
      * @param price - preço do nível de preço atual
      */
-    public void executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
+    private void executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
     {
         int tradedQty = 0;
         for(Order order : validOrders)
@@ -254,6 +260,9 @@ public class OrderBook implements EngineConstants
         System.out.println("Trade, price: " + price + ", qty: " + tradedQty);
     }
 
+    /**
+     * @param incomingOrder - Ordem do tipo Market que vai ser processada
+     */
     public void matchMarketOrder(Order incomingOrder)
     {
         List<BigDecimal> possiblePrices;
@@ -311,6 +320,9 @@ public class OrderBook implements EngineConstants
         }
     }
 
+    /**
+     * @param incomingOrder - Ordem do tipo Limit que vai ser processada
+     */
     public void matchLimitOrder(Order incomingOrder)
     {
         List<BigDecimal> possiblePrices;
@@ -374,6 +386,10 @@ public class OrderBook implements EngineConstants
         }
     }
 
+    /**
+     * @param priceMap - é um TreeMap que mapeia níveis de preço para sua lista correspondente
+     * @return lista ordenada por preço de todas as ordens de determinado Side
+     */
     public List<Order> getAllOrders(TreeMap<BigDecimal, List<Order>> priceMap)
     {
         List<Order> allOrders = new ArrayList<>();

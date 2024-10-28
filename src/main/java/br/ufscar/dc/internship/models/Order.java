@@ -2,7 +2,6 @@ package br.ufscar.dc.internship.models;
 
 import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.UUID;
 
 import br.ufscar.dc.internship.utils.Side;
 import br.ufscar.dc.internship.utils.Type;
@@ -29,7 +28,6 @@ public class Order
         this.side = side;
         this.price = price;
         this.quantity = quantity;
-
     }
 
     /**
