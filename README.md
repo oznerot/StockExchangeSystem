@@ -139,9 +139,9 @@ A MatchingEngine é a classe que recebe os inputs e chama o Livro de Ordem para 
 
 Na publicação de Amitava Biswas, eu notei duas coisas:
 
-A primeira é a utilização de apenas tipos primitivos de dados. Decidi então pesquisar e descobri que o Java possui uma classe Wrapper para cada tipo primitivo de dado e que isso impacta muito a eficiência do algoritmo em uma situação real e além disso, o Java em algumas classes, automaticamente empacota o tipo primitivo em seu respectivo wrapper quando utiliza esses dados em suas estruturas built-in, dessa forma é ideial a utilização de bibliotecas próprias para manipulação de tipos primitivos.
+A primeira é a utilização de apenas tipos primitivos de dados. Decidi então pesquisar e descobri que o Java possui uma classe Wrapper para cada tipo primitivo de dado e que isso impacta muito a eficiência do algoritmo em uma situação real e, além disso, o Java, em alguns métodos, automaticamente empacota o tipo primitivo em seu respectivo wrapper quando utiliza esses dados em suas estruturas built-in, dessa forma é ideial a utilização de bibliotecas próprias para manipulação de tipos primitivos.
 
-A segunda coisa que notei foi a utilização de operações bit-à-bit para cálculos rápidos e eficientes, principalmente ao calcular o identificador da ordem, no qual ao invés de gerar um identificador de forma incremental ou aleatória, ele divide os bits em duas metades, uma para armazenar o índice do Nível de Preço e outra para armazenar o índice do objeto no Nível de preço. Dessa forma ele consegue gerar um índice única de forma rápida.
+A segunda coisa que notei foi a utilização de operações bit-a-bit para cálculos rápidos e eficientes, principalmente ao calcular o identificador da ordem, no qual ao invés de gerar um identificador de forma incremental ou aleatória, ele divide os bits em duas metades, uma para armazenar o índice do Nível de Preço e outra para armazenar o índice do objeto no Nível de preço. Dessa forma ele consegue gerar um índice única de forma rápida.
 
 Amitava também não armazena as ordens nos níveis de preço em um Hard Link, ou seja, em cada nível de preço não está armazenado um objeto, mas sim uma quantidade e um identificador apenas.
 
