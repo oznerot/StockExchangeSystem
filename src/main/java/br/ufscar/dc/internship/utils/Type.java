@@ -4,5 +4,6 @@ public enum Type
 {
     LIMIT,
     MARKET,
-    PEGGED
+    PEGGED_TO_BID,
+    PEGGED_TO_OFFER
 }

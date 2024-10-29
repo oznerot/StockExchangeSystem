@@ -13,6 +13,7 @@ import br.ufscar.dc.internship.config.EngineConstants;
 import br.ufscar.dc.internship.models.Order;
 import br.ufscar.dc.internship.models.Trade;
 import br.ufscar.dc.internship.utils.Side;
+import br.ufscar.dc.internship.utils.Type;
 
 public class OrderBook implements EngineConstants
 {
@@ -20,13 +21,11 @@ public class OrderBook implements EngineConstants
     public TreeMap<BigDecimal, List<Order>> buyOrders;
     public TreeMap<BigDecimal, List<Order>> sellOrders;
 
-    private List<Order> peggedBuyOrders;
-    private List<Order> peggedSellOrders;
+    private List<Order> peggedToBidOrders;
+    private List<Order> peggedToOfferOrders;
 
     private BigDecimal highestBuyPrice;
     private BigDecimal lowestSellPrice;
-
-    private BigDecimal lastTradedPrice;
 
     public OrderBook()
     {
@@ -36,11 +35,11 @@ public class OrderBook implements EngineConstants
         buyOrders = new TreeMap<>(Collections.reverseOrder());
         sellOrders = new TreeMap<>();
 
-        peggedBuyOrders = new ArrayList<>();
-        peggedSellOrders = new ArrayList<>();
+        peggedToBidOrders = new ArrayList<>();
+        peggedToOfferOrders = new ArrayList<>();
 
-        highestBuyPrice = BigDecimal(0);
-        lowestSellPrice = BigDecimal(0);
+        highestBuyPrice = new BigDecimal(0);
+        lowestSellPrice = null;
 
     }
 
@@ -54,11 +53,6 @@ public class OrderBook implements EngineConstants
         return orderMap.get(id);
     }
 
-    public BigDecimal getLastTradedPrice()
-    {
-        return lastTradedPrice;
-    }
-
     public BigDecimal getHighestBuyPrice()
     {
         return highestBuyPrice;
@@ -67,6 +61,11 @@ public class OrderBook implements EngineConstants
     public BigDecimal getLowestSellPrice()
     {
         return lowestSellPrice;
+    }
+
+    public void addOrderToPeggedList(Order order, List<Order> peggedOrders)
+    {
+        peggedOrders.add(order);
     }
 
     /**
@@ -253,7 +252,8 @@ public class OrderBook implements EngineConstants
      * @param incomingOrder - Ordem a ser executada
      * @param price - preço do nível de preço atual
      */
-    private Trade executeMatch(List<Order> validOrders, Order incomingOrder, BigDecimal price)
+    private Trade executeMatch(List<Order> validOrders, Order incomingOrder,
+                                BigDecimal price, TreeMap<BigDecimal, List<Order>> ordersTreeMap)
     {
         int tradedQty = 0;
         for(Order order : validOrders)
@@ -267,10 +267,27 @@ public class OrderBook implements EngineConstants
                 incomingOrder.setQuantity(incomingOrderQty - orderQty);
                 order.setQuantity(0);
                 orderMap.remove(order.getId()); // Remove a ordem completada do HashMap
+                if(order.getType() == Type.PEGGED_TO_BID)
+                {
+                    peggedToBidOrders.remove(order);
+                }
+                else if(order.getType() == Type.PEGGED_TO_OFFER)
+                {
+                    peggedToOfferOrders.remove(order);
+                }
 
             }
             else if(orderQty == incomingOrderQty)
             {
+                if(order.getType() == Type.PEGGED_TO_BID)
+                {
+                    peggedToBidOrders.remove(order);
+                }
+                else if(order.getType() == Type.PEGGED_TO_OFFER)
+                {
+                    peggedToOfferOrders.remove(order);
+                }
+
                 tradedQty += incomingOrderQty;
                 order.setQuantity(0);
                 incomingOrder.setQuantity(0);
@@ -289,6 +306,11 @@ public class OrderBook implements EngineConstants
 
         // Remove as ordens completadas do nivel de preço
         validOrders.removeIf(n -> (n.getQuantity() == 0));
+
+        if(validOrders.isEmpty())
+        {
+            ordersTreeMap.remove(price);
+        }
 
         return new Trade(price, tradedQty);
     }
@@ -321,7 +343,7 @@ public class OrderBook implements EngineConstants
             }
 
             List<Order> ordersAtThisPrice = ordersTreeMap.get(price);
-            Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price);
+            Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price, ordersTreeMap);
             tradesCompleted.add(trade);
         }
 
@@ -355,7 +377,7 @@ public class OrderBook implements EngineConstants
 
             if(sellOrders.isEmpty())
             {
-                lowestSellPrice = lastTradedPrice;
+                lowestSellPrice = BigDecimal.ZERO;
             }
             else
             {
@@ -368,11 +390,11 @@ public class OrderBook implements EngineConstants
 
             if(buyOrders.isEmpty())
             {
-                highestSellPrice = lastTradedPrice;
+                highestBuyPrice = BigDecimal.ZERO;
             }
             else
             {
-                highestSellPrice = buyOrders.firstKey();
+                highestBuyPrice = buyOrders.firstKey();
             }
 
         }
@@ -397,10 +419,14 @@ public class OrderBook implements EngineConstants
     {
         List<BigDecimal> possiblePrices = topNBestPricesInSide(ordersTreeMap);
         List<Trade> tradesCompleted = new ArrayList<>();
+        
         if(possiblePrices.isEmpty())
         {
+            adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(),
+                                                  incomingOrder.getSide());
+
             addOrderToBook(incomingOrder);
-            System.out.println("Livro de compra vazio. Ordem adicionada no livro.");
+            System.out.println("Livro oposto vazio. Ordem adicionada no livro.");
             return tradesCompleted;
         }
 
@@ -414,13 +440,16 @@ public class OrderBook implements EngineConstants
                 }
 
                 List<Order> ordersAtThisPrice = ordersTreeMap.get(price);
-                Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price);
+                Trade trade = executeMatch(ordersAtThisPrice, incomingOrder, price, ordersTreeMap);
                 tradesCompleted.add(trade);
+                
             }
         }
 
         if(incomingOrder.getQuantity() != 0)
         {
+            adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(), 
+                                                  incomingOrder.getSide());
             addOrderToBook(incomingOrder);
         }
 
@@ -437,22 +466,101 @@ public class OrderBook implements EngineConstants
      */
     public List<Trade> matchLimitOrder(Order incomingOrder)
     {
-        List<BigDecimal> possiblePrices;
-        List<Trade> tradesCompleted = new ArrayList<>();
+        List<Trade> tradesCompleted;
         if(incomingOrder.getSide() == Side.BUY)
         {
-            processLimitOrderAndMatchTrades(incomingOrder, sellOrders,
-                                           (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) >= 0);
+            tradesCompleted = processLimitOrderAndMatchTrades(incomingOrder, sellOrders,
+                            (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) >= 0);
 
         }
         else
         {
-            processLimitOrderAndMatchTrades(incomingOrder, buyOrders,
-                                           (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) <= 0);
+            tradesCompleted = processLimitOrderAndMatchTrades(incomingOrder, buyOrders,
+                            (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) <= 0);
 
         }
 
         return tradesCompleted;
+    }
+
+    private void adjustBestPricesAndUpdatePeggedOrders(BigDecimal price, Side side)
+    {
+        if(side == Side.BUY)
+        {
+            if(price.compareTo(highestBuyPrice) > 0)
+            {
+                highestBuyPrice = price;
+                updateBidPeggedOrder();
+            }
+        }
+        else
+        {
+            if(lowestSellPrice == null)
+            {
+                lowestSellPrice = price;
+            }
+            else if(price.compareTo(lowestSellPrice) < 0)
+            {
+                lowestSellPrice = price;
+                updateOfferPeggedOrder();
+            }
+        }
+    }
+
+    /**
+     * Atualiza as ordens pegged para o nível de preço correto
+     * 
+     * Complexidade no pior dos casos: O(n²) :(
+     * 
+     * Explicação, no pior dos casos temos n-1 ordens pegadas,
+     * Remover uma ordem é O(n)
+     * Adicionar uma ordem é O(log n).
+     * Realizar essa operação n vezes resultará em: n * O(n) + n * O(log n).
+     * 
+     * Por favor, leia o README na seção de Otimizações, comento
+     * sobre as possíveis otimizações que descobri enquanto
+     * estudava
+     * 
+     */
+    public void updateBidPeggedOrder()
+    {
+        for(Order order : peggedToBidOrders)
+        {
+            removeOrderFromBook(order);
+            order.setPrice(highestBuyPrice);
+            addOrderToBook(order);
+        }
+    }
+
+    public void updateOfferPeggedOrder()
+    {
+        for(Order order : peggedToOfferOrders)
+        {
+            removeOrderFromBook(order);
+            order.setPrice(lowestSellPrice);
+            addOrderToBook(order);
+        }
+    }
+
+    /**
+     * Insere a ordem pegged na lista correspondente e no livro
+     * 
+     * Complexidade: O(log n)
+     * 
+     * @param incomingOrder - ordem pegged
+     */
+    public void processPeggedOrder(Order incomingOrder)
+    {
+        if(incomingOrder.getType() == Type.PEGGED_TO_BID)
+        {
+            peggedToBidOrders.add(incomingOrder);
+        }
+        else
+        {
+            peggedToOfferOrders.add(incomingOrder);
+        }
+
+        addOrderToBook(incomingOrder);
     }
 
     /**

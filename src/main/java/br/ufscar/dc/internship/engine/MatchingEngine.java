@@ -54,7 +54,7 @@ public class MatchingEngine implements EngineConstants
      * 
      * @return True se a operação foi bem sucedidade. False caso contrário.
      */
-    public boolean submitLimitOrder(String side, double price, int quantity, String asset)
+    public boolean submitLimitOrder(String side, String price, int quantity, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
         if(orderBook == null)
@@ -112,6 +112,56 @@ public class MatchingEngine implements EngineConstants
         return true;
     }
 
+    public boolean submitPeggedToBidOrder(String side, int quantity, String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
+        }
+
+        BigDecimal price = orderBook.getHighestBuyPrice();
+        if(price.equals(0))
+        {
+            System.out.println("Nenhuma ordem de compra ou venda encontrada.");
+            return false;
+        }
+
+        Side sideEnum = side.equals("buy") ? Side.BUY : Side.SELL;
+
+        Order order = new Order(Type.PEGGED_TO_BID, sideEnum, price, quantity);
+
+        orderBook.processPeggedOrder(order);
+
+        return true;
+    }
+
+    public boolean submitPeggedToOfferOrder(String side, int quantity, String asset)
+    {
+        OrderBook orderBook = orderBookMap.get(asset);
+        if(orderBook == null)
+        {
+            System.out.println(ASSET_NOT_FOUND);
+            return false;
+        }
+
+        BigDecimal price = orderBook.getLowestSellPrice();
+        if(price.equals(0))
+        {
+            System.out.println("Nenhuma ordem de compra ou venda encontrada.");
+            return false;
+        }
+
+        Side sideEnum = side.equals("sell") ? Side.SELL : Side.BUY;
+
+        Order order = new Order(Type.PEGGED_TO_OFFER, sideEnum, price, quantity);
+
+        orderBook.processPeggedOrder(order);
+
+        return true;
+    }
+
     /**
      * Cancela uma ordem
      * 
@@ -164,15 +214,21 @@ public class MatchingEngine implements EngineConstants
             System.out.println("Ordem não encontrada");
             return false;
         }
-        
-        orderBook.removeOrderFromBook(existingOrder);
 
+        List<Trade> trades = new ArrayList<>();
+        existingOrder.setQuantity(newQuantity);
         BigDecimal price = new BigDecimal(newPrice);
 
-        existingOrder.setPrice(price);
-        existingOrder.setQuantity(newQuantity);
-
-        List<Trade> trades = orderBook.matchLimitOrder(existingOrder);
+        // Só é necessário remover a ordem do nível de preço caso
+        // o novo preço seja diferente do antigo.
+        // Isso é importanta para manter a prioridade da ordem caso
+        // apenas a quantidade seja alterada
+        if(existingOrder.getPrice().compareTo(price) != 0)
+        {
+            orderBook.removeOrderFromBook(existingOrder);
+            existingOrder.setPrice(price);
+            trades = orderBook.matchLimitOrder(existingOrder);
+        }
 
         if(!trades.isEmpty())
         {
