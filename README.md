@@ -1,8 +1,8 @@
 # Matching Order System
 ## Requerimentos  
-Apache Maven 3.8.7
-Maven home: /usr/share/maven
-Java version: 17.0.12, vendor: Debian, runtime: /usr/lib/jvm/java-17-openjdk-amd64
+Apache Maven 3.8.7  
+Maven home: /usr/share/maven  
+Java version: 17.0.12, vendor: Debian, runtime: /usr/lib/jvm/java-17-openjdk-amd64  
 
 Como rodar:
 ```
