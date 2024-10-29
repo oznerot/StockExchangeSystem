@@ -526,9 +526,7 @@ public class OrderBook implements EngineConstants
     {
         for(Order order : peggedToBidOrders)
         {
-            removeOrderFromBook(order);
             order.setPrice(highestBuyPrice);
-            addOrderToBook(order);
         }
     }
 
@@ -536,9 +534,7 @@ public class OrderBook implements EngineConstants
     {
         for(Order order : peggedToOfferOrders)
         {
-            removeOrderFromBook(order);
             order.setPrice(lowestSellPrice);
-            addOrderToBook(order);
         }
     }
 
