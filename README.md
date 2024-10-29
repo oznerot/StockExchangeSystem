@@ -1,4 +1,15 @@
 # Matching Order System
+## Requerimentos  
+Apache Maven 3.8.7
+Maven home: /usr/share/maven
+Java version: 17.0.12, vendor: Debian, runtime: /usr/lib/jvm/java-17-openjdk-amd64
+
+Como rodar:
+```
+mvn clean compile
+
+mvn exec:java -Dexec.mainClass="br.ufscar.dc.internship.App"
+```
 ## Objetivo  
 Desenhar um projeto de software utilizando formas eficientes de estruturação de dados, algoritmos e engenharia de software. Os algoritmos devem ter, se possível ordem N. O software pode ser escrito de forma estrutural ou orientada à objetos.
 
