@@ -325,7 +325,9 @@ public class OrderBook implements EngineConstants
      * 
      * @return Lista das trades que foram realizadas.
      */
-    private List<Trade> processMarketOrderAndMatchTrades(Order incomingOrder, TreeMap<BigDecimal, List<Order>> ordersTreeMap)
+    private List<Trade> tryToMatchMarketOrders(Order incomingOrder,
+                                               TreeMap<BigDecimal,
+                                               List<Order>> ordersTreeMap)
     {
         List<BigDecimal> possiblePrices = topNBestPricesInSide(ordersTreeMap);
         List<Trade> tradesCompleted = new ArrayList<>();
@@ -366,37 +368,19 @@ public class OrderBook implements EngineConstants
      * 
      * @return Lista das trades realizadas
      */
-    public List<Trade> matchMarketOrder(Order incomingOrder)
+    public List<Trade> processMarketOrder(Order incomingOrder)
     {
         List<BigDecimal> possiblePrices;
         List<Trade> tradesCompleted = new ArrayList<>();
 
         if(incomingOrder.getSide() == Side.BUY)
         {
-            tradesCompleted = processMarketOrderAndMatchTrades(incomingOrder, sellOrders);
+            tradesCompleted = tryToMatchMarketOrders(incomingOrder, sellOrders);
 
-            if(sellOrders.isEmpty())
-            {
-                lowestSellPrice = BigDecimal.ZERO;
-            }
-            else
-            {
-                lowestSellPrice = sellOrders.firstKey();
-            }
         }
         else
         {
-            tradesCompleted = processMarketOrderAndMatchTrades(incomingOrder, buyOrders);
-
-            if(buyOrders.isEmpty())
-            {
-                highestBuyPrice = BigDecimal.ZERO;
-            }
-            else
-            {
-                highestBuyPrice = buyOrders.firstKey();
-            }
-
+            tradesCompleted = tryToMatchMarketOrders(incomingOrder, buyOrders);
         }
 
         return tradesCompleted;
@@ -413,17 +397,17 @@ public class OrderBook implements EngineConstants
      * 
      * @return Lista das trades que foram realizadas.
      */
-    private List<Trade> processLimitOrderAndMatchTrades(Order incomingOrder,
-                                                        TreeMap<BigDecimal, List<Order>> ordersTreeMap,
-                                                        BiPredicate<BigDecimal, BigDecimal> priceComparison)
+    private List<Trade> tryToMatchLimitOrders(Order incomingOrder,
+                                            TreeMap<BigDecimal, List<Order>> ordersTreeMap,
+                                            BiPredicate<BigDecimal, BigDecimal> priceComparison)
     {
         List<BigDecimal> possiblePrices = topNBestPricesInSide(ordersTreeMap);
         List<Trade> tradesCompleted = new ArrayList<>();
         
         if(possiblePrices.isEmpty())
         {
-            adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(),
-                                                  incomingOrder.getSide());
+            //adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(),
+            //                                      incomingOrder.getSide());
 
             addOrderToBook(incomingOrder);
             System.out.println("Livro oposto vazio. Ordem adicionada no livro.");
@@ -448,8 +432,8 @@ public class OrderBook implements EngineConstants
 
         if(incomingOrder.getQuantity() != 0)
         {
-            adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(), 
-                                                  incomingOrder.getSide());
+            //adjustBestPricesAndUpdatePeggedOrders(incomingOrder.getPrice(), 
+            //                                      incomingOrder.getSide());
             addOrderToBook(incomingOrder);
         }
 
@@ -464,18 +448,18 @@ public class OrderBook implements EngineConstants
      * 
      * @return Lista de trades que foram realizadas.
      */
-    public List<Trade> matchLimitOrder(Order incomingOrder)
+    public List<Trade> processLimitOrder(Order incomingOrder)
     {
         List<Trade> tradesCompleted;
         if(incomingOrder.getSide() == Side.BUY)
         {
-            tradesCompleted = processLimitOrderAndMatchTrades(incomingOrder, sellOrders,
+            tradesCompleted = tryToMatchLimitOrders(incomingOrder, sellOrders,
                             (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) >= 0);
 
         }
         else
         {
-            tradesCompleted = processLimitOrderAndMatchTrades(incomingOrder, buyOrders,
+            tradesCompleted = tryToMatchLimitOrders(incomingOrder, buyOrders,
                             (incomingPrice, bookPrice) -> incomingPrice.compareTo(bookPrice) <= 0);
 
         }
@@ -483,6 +467,20 @@ public class OrderBook implements EngineConstants
         return tradesCompleted;
     }
 
+    /**
+     * @description O bloco de código comentado abaixo foi uma tentativa de implementar
+     * pegged orders, porém percebi que isso aumentaria a complexidade de tempo do meu sistema
+     * para O(n²) pois cada vez que insiro uma ordem que muda o preço de referência eu preciso
+     * atualizar todas as ordens pegged.
+     * 
+     * Uma possível solução seria criar um Nível de Preço do tipo priceLevel e armazenar na
+     * RedBlackTree ao invés de uma simples lista de ordens. Nesse objeto teríamos uma variável
+     * que armazenaria uma lista de ordens pegged, e sempre que um Nível de Preço mudasse
+     * o preço de referência a gente só precisaria remover o objeto do Nível de Preço antigo
+     * e atribuir ao novo, resultando em uma complexidade de O(1).
+     * 
+     * 
+     *
     private void adjustBestPricesAndUpdatePeggedOrders(BigDecimal price, Side side)
     {
         if(side == Side.BUY)
@@ -507,21 +505,11 @@ public class OrderBook implements EngineConstants
         }
     }
 
-    /**
      * Atualiza as ordens pegged para o nível de preço correto
      * 
-     * Complexidade no pior dos casos: O(n²) :(
+     * Complexidade no pior dos casos: O(n)
      * 
-     * Explicação, no pior dos casos temos n-1 ordens pegadas,
-     * Remover uma ordem é O(n)
-     * Adicionar uma ordem é O(log n).
-     * Realizar essa operação n vezes resultará em: n * O(n) + n * O(log n).
-     * 
-     * Por favor, leia o README na seção de Otimizações, comento
-     * sobre as possíveis otimizações que descobri enquanto
-     * estudava
-     * 
-     */
+     
     public void updateBidPeggedOrder()
     {
         for(Order order : peggedToBidOrders)
@@ -538,13 +526,13 @@ public class OrderBook implements EngineConstants
         }
     }
 
-    /**
+    
      * Insere a ordem pegged na lista correspondente e no livro
      * 
      * Complexidade: O(log n)
      * 
      * @param incomingOrder - ordem pegged
-     */
+     
     public void processPeggedOrder(Order incomingOrder)
     {
         if(incomingOrder.getType() == Type.PEGGED_TO_BID)
@@ -557,7 +545,7 @@ public class OrderBook implements EngineConstants
         }
 
         addOrderToBook(incomingOrder);
-    }
+    }*/
 
     /**
      * Retorna todas as ordens de forma ordenada por preço e chegada

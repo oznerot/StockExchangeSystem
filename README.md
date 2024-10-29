@@ -97,6 +97,8 @@ O mesmo funciona para o peg to the offer.
 4. Ordens pegged não precisam necessariamente serem armazenadas no livro, pode ser um armazenamento abstrato, no qual mantemos as ordens pegged separadas do Livro
 porém ao realizar os matches, tentamos fazer o match primeiro com as ordens pegged já que elas sempre vão acompanhar ou o melhor valor de compra ou o melhor valor de venda. Isso vai permitir que evitamos uma complexidade O(n²) no pior caso (onde todas as ordens são pegged e uma com preço melhor é inserida);
 
+5. Não precisamos puxar a lista de todos os preços disponíveis, apenas os N melhores. Pode ocorrer que deixemos de pegar preços que gerariam matches, porém não precisariamos iterar por todos os níveis de preço caso a quantidade da ordem entrante seja suficiente. Isso também evita que preços não tão comuns influenciem diretamente no mercado.
+
 ## Ideias Iniciais  
 Enquanto eu pesquisava sobre o problema, a primeira ideia que me veio à cabeça foi utilizando duas Priority Queues, uma para as ordens de compra e outra para as ordens de venda. Na minha cabeça seria uma implementação boa onde eu precisaria apenas ordenar primeiro por preço e caso fosse igual, por tempo de entrada.
 

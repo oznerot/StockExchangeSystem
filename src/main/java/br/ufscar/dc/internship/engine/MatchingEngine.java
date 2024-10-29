@@ -67,7 +67,7 @@ public class MatchingEngine implements EngineConstants
 
         Order order = new Order(Type.LIMIT, sideEnum, new BigDecimal(price), quantity);
 
-        List<Trade> trades = orderBook.matchLimitOrder(order);
+        List<Trade> trades = orderBook.processLimitOrder(order);
 
         for(Trade trade : trades)
         {
@@ -99,7 +99,7 @@ public class MatchingEngine implements EngineConstants
 
         Order order = new Order(Type.MARKET, sideEnum, new BigDecimal(0), quantity);
 
-        List<Trade> trades = orderBook.matchMarketOrder(order);
+        List<Trade> trades = orderBook.processMarketOrder(order);
 
         if(!trades.isEmpty())
         {
@@ -112,6 +112,10 @@ public class MatchingEngine implements EngineConstants
         return true;
     }
 
+    /*
+     * Tentativa de implementar orders Pegged, por favor leia o comentário na linha
+     * 470 de OrderBook.java para mais detalhes.
+     * 
     public boolean submitPeggedToBidOrder(String side, int quantity, String asset)
     {
         OrderBook orderBook = orderBookMap.get(asset);
@@ -160,7 +164,7 @@ public class MatchingEngine implements EngineConstants
         orderBook.processPeggedOrder(order);
 
         return true;
-    }
+    }*/
 
     /**
      * Cancela uma ordem
@@ -187,6 +191,7 @@ public class MatchingEngine implements EngineConstants
         }
 
         orderBook.removeOrderFromBook(order);
+        System.out.println("Order cancelled");
         return true;
     }
 
@@ -221,13 +226,13 @@ public class MatchingEngine implements EngineConstants
 
         // Só é necessário remover a ordem do nível de preço caso
         // o novo preço seja diferente do antigo.
-        // Isso é importanta para manter a prioridade da ordem caso
+        // Isso é importante para manter a prioridade da ordem caso
         // apenas a quantidade seja alterada
         if(existingOrder.getPrice().compareTo(price) != 0)
         {
             orderBook.removeOrderFromBook(existingOrder);
             existingOrder.setPrice(price);
-            trades = orderBook.matchLimitOrder(existingOrder);
+            trades = orderBook.processLimitOrder(existingOrder);
         }
 
         if(!trades.isEmpty())
